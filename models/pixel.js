@@ -70,56 +70,6 @@ PixelSchema.methods.toInfo = function(userIDs = true) {
     return info;
 }
 
-PixelSchema.statics.addPixel = function(colour, x, y, userID, app, callback) {
-    var pn = this;
-    x = parseInt(x), y = parseInt(y);
-    if(isNaN(x) || isNaN(y)) return callback(null, { message: "Invalid positions provided." });
-    // TODO: Get actual position below:
-    if(x < 0 || y < 0 || x >= app.config.boardSize || y >= app.config.boardSize) return callback(null, { message: "Position is out of bounds." });
-    this.findOne({
-        xPos: x,
-        yPos: y
-    }, {
-        editorID: 1,
-        colourR: 1,
-        colourG: 1,
-        colourB: 1
-    }).then((pixel) => {
-        // Find the pixel at this location
-        var wasIdentical = colour.r == 255 && colour.g == 255 && colour.b == 255; // set to identical if pixel was white
-        if (pixel) { // we have data from the old pixel
-            wasIdentical = pixel.editorID == userID && pixel.colourR == colour.r && pixel.colourG == colour.g && pixel.colourB == colour.b; // set to identical if colour matched old pixel
-        }
-        if (!wasIdentical) { // if the pixel was changed
-            if(!pixel) { // if the spot was blank, create a new one
-                pixel = pn({
-                    xPos: x,
-                    yPos: y
-                });
-            }
-            // change our appropriate fields
-            pixel.editorID = userID;
-            pixel.colourR = colour.r;
-            pixel.colourG = colour.g;
-            pixel.colourB = colour.b;
-            pixel.lastModified = Date();
-            // save the changes
-            pixel.save().then((p) => {
-                callback(true, null); // report back that we changed the pixel
-            }).catch((err) => {
-                app.reportError("Error saving pixel for update: " + err);
-                callback(null, { message: "An error occurred while trying to place the pixel." });
-            })
-        } else {
-            // report back that we didn't change the pixel
-            return callback(false, null);
-        }
-    }).catch((err) => {
-        app.reportError("Error reading pixel for update: " + err);
-        callback(null, { message: "An error occurred while trying to place the pixel." });
-    });
-}
-
 PixelSchema.methods.getInfo = function(overrideDataAccess = false, app = null) {
     return new Promise((resolve, reject) => {
         let info = this.toInfo();

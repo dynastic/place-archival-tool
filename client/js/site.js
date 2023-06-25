@@ -247,3 +247,7 @@ if(("standalone" in window.navigator) && window.navigator.standalone){
 	
 	}, false);
 }
+
+$(document).ready(function () {
+    $(".timeago").timeago();
+});

@@ -1,6 +1,5 @@
 const Jimp = require("jimp");
 const Pixel = require("../models/pixel");
-const ActionLogger = require("../util/ActionLogger");
 const fs = require("fs");
 const path = require("path");
 
@@ -127,7 +126,6 @@ function PaintingManager(app) {
                         a.isGenerating = false;
                         a.imageHasChanged = false;
                         if (a.firstGenerateAfterLoad) {
-                            app.websocketServer.broadcast("server_ready");
                             a.firstGenerateAfterLoad = false;
                         }
                     });
@@ -142,31 +140,6 @@ function PaintingManager(app) {
                 g: parseInt(result[2], 16),
                 b: parseInt(result[3], 16)
             } : null;
-        },
-
-        doPaint: function(colour, x, y, user) {
-            var a = this;
-            return new Promise((resolve, reject) => {
-                if (!this.hasImage) return reject({message: "Our servers are currently getting ready. Please try again in a moment.", code: "not_ready"});
-                if (app.temporaryUserInfo.isUserPlacing(user)) return reject({message: "You cannot place more than one tile at once.", code: "attempted_overload"});
-                app.temporaryUserInfo.setUserPlacing(user, true);
-                // Add to DB:
-                user.addPixel(colour, x, y, app, (changed, err) => {
-                    app.temporaryUserInfo.setUserPlacing(user, false);
-                    if (err) return reject(err);
-                    const pixelData = { x: x, y: y, colour: Jimp.rgbaToInt(colour.r, colour.g, colour.b, 255) };
-                    a.pixelsToPaint.push(pixelData);
-                    if (a.pixelsToPreserve) a.pixelsToPreserve.push(pixelData);
-                    a.imageHasChanged = true;
-                    // Send notice to all clients:
-                    var info = {x: x, y: y, colour: Pixel.getHexFromRGB(colour.r, colour.g, colour.b)};
-                    app.pixelNotificationManager.pixelChanged(info);
-                    ActionLogger.log(app, "place", user, null, info);
-                    app.userActivityController.recordActivity(user);
-                    app.leaderboardManager.needsUpdating = true;
-                    resolve();
-                });
-            });
         },
 
         startTimer: function() {

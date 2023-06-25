@@ -1,17 +1,11 @@
 const path = require("path");
 const fs = require("fs");
-const md5 = require("md5");
 
 const configPath = path.join(__dirname, "..", "config");
 const tosPath = path.join(configPath, "tos.md");
 const ppPath = path.join(configPath, "privacy_policy.md");
 
 class TOSManager {
-    constructor() {
-        this.cachedTOSVersion = null;
-        this.refreshTOSVersion();
-    }
-
     // Terms of Service
 
     hasTOSSync() {
@@ -31,23 +25,6 @@ class TOSManager {
                 resolve(data);
             });
         });
-    }
-
-    getCurrentTOSVersion(overrideCache = false) {
-        return new Promise((resolve, reject) => {
-            if(this.cachedTOSVersion != null && !overrideCache) return resolve(this.cachedTOSVersion);
-            this.getTOSContent().then((content) => resolve(md5(content))).catch((err) => reject(err));
-        })
-    }
-    
-    refreshTOSVersion() {
-        this.getCurrentTOSVersion(true).then((version) => {
-            this.cachedTOSVersion = version;
-            setTimeout(() => this.refreshTOSVersion(), 30000); // check TOS version every 30 seconds
-        }).catch((err) => {
-            console.error('TOS Manager', "Couldn't cache TOS version: " + err);
-            setTimeout(() => this.refreshTOSVersion(), 30000); // check TOS version every 30 seconds
-        })
     }
 
     // Privacy Policy
