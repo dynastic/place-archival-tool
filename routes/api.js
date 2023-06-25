@@ -1,7 +1,6 @@
 const express = require("express");
 const BoardImageController = require("../controllers/BoardImageController");
 const PixelInfoController = require("../controllers/PixelInfoController");
-const AccountPageController = require("../controllers/AccountPageController");
 
 function APIRouter(app) {
     let router = express.Router();
@@ -18,8 +17,6 @@ function APIRouter(app) {
     router.get("/board-image", BoardImageController.getAPIBoardImage);
 
     router.get("/pos-info", PixelInfoController.getAPIPixelInfo);
-
-    router.get("/user/:username", AccountPageController.getAPIAccount);
 
     return router;
 }

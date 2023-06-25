@@ -20,7 +20,6 @@ function PublicRouter(app) {
         req.responseFactory.sendRenderedResponse("public/sitemap.xml.pug", null, "text/xml");
     });
 
-    router.get("/user/:userID", AccountPageController.getAccountByID);
     router.get("/@:username", AccountPageController.getAccount);
 
     return router;
