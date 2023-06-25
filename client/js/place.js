@@ -255,16 +255,6 @@ var place = {
             this.userCountChanged(online);
         }).catch((err) => $(this.userCountElement).hide());
 
-        this.popoutController = popoutController;
-        this.popoutController.setup(this, $("#popout-container")[0]);
-        this.popoutController.popoutVisibilityController.visibilityChangeCallback = () => {
-            var start = new Date();
-            var interval = setInterval(function() {
-                app.handleResize();
-                if((new Date() - start) > 250) clearInterval(interval);
-            }, 1);
-        }
-
         $("#colour-picker").minicolors({inline: true, format: "hex", letterCase: "uppercase", defaultValue: "#D66668", change: (change) => this.handleColourPaletteChange(change) });
         $("#colour-picker-hex-value").on("input change keydown", function(e) {
             if (e.keyCode && e.keyCode !== 33) return;
@@ -1104,7 +1094,6 @@ var place = {
                 this.changePlacingModalVisibility(false);
                 this.placing = false;
             }).then((data) => {
-                this.popoutController.loadActiveUsers();
                 this.setPixel(hex, x, y);
                 this.changeSelectorVisibility(false);
                 if(data.timer) this.doTimer(data.timer);
@@ -1382,15 +1371,6 @@ place.setZoomButton($("#zoom-button")[0]);
 place.setGridButton($("#grid-button")[0]);
 place.setCoordinatesButton($("#coordinates")[0]);
 
-$(".popout-control").click(function() {
-    place.popoutController.popoutVisibilityController.open();
-    place.popoutController.popoutVisibilityController.changeTab($(this).data("tab-name"));
-})
-
-$("#user-count").click(function() {
-    place.popoutController.popoutVisibilityController.open();
-    place.popoutController.popoutVisibilityController.changeTab("active-users");
-});
 
 var hash = hashHandler.getHash();
 var hashKeys = Object.keys(hash);

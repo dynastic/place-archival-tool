@@ -3,17 +3,12 @@ const express = require("express");
 const GuidelineController = require("../controllers/GuidelineController");
 const TOSController = require("../controllers/TOSController");
 const AccountPageController = require("../controllers/AccountPageController");
-const AuthController = require("../controllers/AuthController");
 
 function PublicRouter(app) {
     let router = express.Router();
 
     router.get("/", function(req, res) {
         req.responseFactory.sendRenderedResponse("public/index");
-    });
-
-    router.get("/popout", function(req, res) {
-        req.responseFactory.sendRenderedResponse("public/popout");
     });
 
     router.get(["/guidelines", "/rules", "/community-guidelines"], GuidelineController.getGuidelines);

@@ -19,9 +19,8 @@ class ResponseFactory {
         var resources = this.req.place.moduleManager.getResourcesFromModules(this.req);
         var routerPath = this.req.baseUrl.substr(1);
         if(routerPath.length > 0) routerPath += "/";
-        var redirectURLPart = this.req.path == "/signin" || this.req.path == "/signup" ? "" : encodeURIComponent(routerPath + this.req.url.substr(1));
         var path = this.req.baseUrl + this.req.path;
-        var data = { url: this.req.url, path, config: this.app.config, fs, redirectURLPart: redirectURLPart, moduleManager: this.req.place.moduleManager, resources: resources, req: this.req, res: this.res, TOSManager };
+        var data = { url: this.req.url, path, config: this.app.config, fs, moduleManager: this.req.place.moduleManager, resources: resources, req: this.req, res: this.res, TOSManager };
         if (typeof this.req.user !== undefined && this.req.user) data.user = this.req.user;
         return data;
     }

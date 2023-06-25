@@ -140,16 +140,6 @@ function PaintingManager(app) {
                 g: parseInt(result[2], 16),
                 b: parseInt(result[3], 16)
             } : null;
-        },
-
-        startTimer: function() {
-            setInterval(() => {
-                if (this.pixelsToPreserve) return app.logger.log("Painting Manager", "Will not start board image update, as board image is still being completely loaded...");
-                if (this.isGenerating) return app.logger.log("Painting Manager", "Will not start board image update, as board image is still being generated...");
-                if (!this.imageHasChanged) return app.logger.log("Painting Manager", "Not updating board image, no changes since last update.");
-                app.logger.log("Painting Manager", "Starting board image update...");
-                this.generateOutputImage();
-            }, regenerationInterval * 1000);
         }
     };
 }
