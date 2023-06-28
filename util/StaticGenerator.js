@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const TOSManager = require("./TOSManager");
-const { marked } = require("marked");
+const { marked } = require("./Markdown");
 
 class StaticGenerator {
     constructor(app, outputFolder) {
