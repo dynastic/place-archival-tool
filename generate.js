@@ -7,6 +7,9 @@ const StaticGenerator = require("./util/StaticGenerator");
 const User = require("./models/user");
 const fs = require("fs");
 const path = require("path");
+const Pixel = require("./models/pixel");
+
+const desiredPixelDataFileMax = 6800;
 
 var app = {};
 
@@ -37,29 +40,79 @@ mongoose.connect(process.env.DATABASE || app.config.database);
     const generator = new StaticGenerator(app, outDirectory);
     app.logger.info('Generation', "Created output directory.")
 
+    const pixelCount = await Pixel.count();
+    app.logger.info('Generation', "Found", pixelCount.toLocaleString(), "pixels in database. Splitting into", desiredPixelDataFileMax.toLocaleString(), "files…");
+    const axisSegments = Math.ceil(Math.sqrt(desiredPixelDataFileMax));
+    const axisSegmentSize = Math.ceil(app.config.boardSize / axisSegments);
+
+    // Create two-dimensional array of segments
+    const segments = [];
+    for (let i = 0; i < axisSegments; i++) {
+        segments[i] = [];
+        for (let j = 0; j < axisSegments; j++) {
+            segments[i][j] = { pixels: {}, users: {} };
+        }
+    }
+
+    const segmentForPixel = (pixel) => {
+        return {
+            segmentX: Math.floor(pixel.xPos / axisSegmentSize),
+            segmentY: Math.floor(pixel.yPos / axisSegmentSize),
+            pixelKey: `${pixel.xPos}.${pixel.yPos}`
+        };
+    }
+
     app.logger.info('Generation', "Writing common files…")
-    generator.writeCommonFiles();
+    generator.writeCommonFiles(axisSegmentSize);
 
     app.logger.info('Generation', "Building and processing client JavaScript…");
     await new JavaScriptProcessor(app).processJavaScript(path.join(outDirectory, "js", "build"));
 
     // Maintain a list of users for pixel JSON later
     const userData = {};
-    app.logger.info('Generation', "Loading users from database and writing profile pages to disk…");
+    app.logger.info('Generation', "Loading users from database…");
+
+    // Load users into memory
     await User.find({ banned: { $ne: true }, deactivated: { $ne: true }, deletionDate: { $exists: false } }).cursor().eachAsync(async (user) => {
-        const info = await user.getInfo(app);
-        userData[user.id] = info
-        await generator.writeProfilePage(user, info);
+        userData[user.id] = user.toInfo(app);
     })
-    app.logger.info('Generation', "Loaded all users from database and wrote profiles to disk…");
+    app.logger.info('Generation', "Loaded all users from database");
 
     app.logger.info('Generation', "Loading pixels from the database…");
-    // Load pixels from database for image and write pixels.json
+    var latestPixelForUser = {};
+    // Load pixels from database
     await app.paintingManager.loadImageFromDatabase((pixel) => {
-        const info = pixel.toInfo();
-        if (pixel.editorID) info.user = userData[pixel.editorID];
-        generator.writePixelInfo(info);
+        const { pixelKey, segmentX, segmentY } = segmentForPixel(pixel);
+        segments[segmentX][segmentY].pixels[pixelKey] = pixel.toInfo();
+        if (pixel.editorID) {
+            if (!latestPixelForUser[pixel.editorID] || latestPixelForUser[pixel.editorID].lastModified < pixel.lastModified) latestPixelForUser[pixel.editorID] = pixel.toInfo(true);
+            if (userData[pixel.editorID]) segments[segmentX][segmentY].users[pixel.editorID] = userData[pixel.editorID];
+        }
     });
+    
+    // Now that we know the latest pixel for each user, add them to the segments
+    for (let x = 0; x < axisSegments; x++) {
+        for (let y = 0; y < axisSegments; y++) {
+            for (let userID in segments[x][y].users) {
+                segments[x][y].users[userID].latestPixel = latestPixelForUser[userID];
+            }
+        }
+    }
+
+    // Write profile pages for each user
+    app.logger.info('Generation', "Writing profile pages to disk…");
+    for (let userID in userData) {
+        generator.writeProfilePage(userData[userID]);
+    }
+
+    // Write out segments
+    app.logger.info('Generation', "Writing pixel data to disk…");
+    for (let x = 0; x < axisSegments; x++) {
+        for (let y = 0; y < axisSegments; y++) {
+            generator.writePixelSegmentInfo(segments[x][y], x, y);
+        }
+    }
+
     // Start writing image
     app.logger.info('Generation', "Generating image and saving to disk…");
     const { image } = await app.paintingManager.getOutputImage();
@@ -67,4 +120,5 @@ mongoose.connect(process.env.DATABASE || app.config.database);
     app.logger.info('Generation', "Successfully wrote pixel data to disk.");
 
     app.logger.info('Generation', "Done! Your static site is now available in", outDirectory);
+    process.exit();
 })();

@@ -1,9 +1,5 @@
 const Jimp = require("jimp");
 const Pixel = require("../models/pixel");
-const fs = require("fs");
-const path = require("path");
-
-const regenerationInterval = 30; // in seconds
 
 function PaintingManager(app) {
     const imageSize = app.config.boardSize;

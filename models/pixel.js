@@ -57,28 +57,13 @@ var PixelSchema = new Schema({
     }
 });
 
-PixelSchema.methods.toInfo = function(userIDs = true) {
-    var info = {
-        point: {
-            x: this.xPos,
-            y: this.yPos
-        },
+PixelSchema.methods.toInfo = function(includePos = false) {
+    return {
+        point: includePos ? {x: this.xPos, y: this.yPos} : undefined,
         modified: this.lastModified,
-        colour: this.getHexColour()
+        colour: this.getHexColour(),
+        editorID: this.editorID || undefined
     };
-    if (userIDs) info.editorID = this.editorID;
-    return info;
-}
-
-PixelSchema.methods.getInfo = function(overrideDataAccess = false, app = null) {
-    return new Promise((resolve, reject) => {
-        let info = this.toInfo();
-        require("./user").getPubliclyAvailableUserInfo(this.editorID, overrideDataAccess, app).then((userInfo) => resolve(Object.assign(info, userInfo))).catch((err) => reject(err));
-    });
-}
-
-PixelSchema.methods.getSocketInfo = function() {
-    return {x: this.xPos, y: this.yPos, colour: this.getHexColour()};
 }
 
 PixelSchema.methods.getHexColour = function() {

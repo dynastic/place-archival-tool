@@ -108,7 +108,6 @@ UserSchema.methods.toInfo = function(app = null) {
     var info = {
         id: this.id,
         username: this.name,
-        isOauth: this.isOauth || false,
         creationDate: this.creationDate,
         admin: this.admin,
         moderator: this.moderator,
@@ -116,28 +115,12 @@ UserSchema.methods.toInfo = function(app = null) {
             totalPlaces: this.placeCount,
             lastPlace: this.lastPlace
         },
-        banned: this.banned,
-        deactivated: this.deactivated,
-        markedForDeletion: this.isMarkedForDeletion(),
+        initials: this.getUsernameInitials(),
         badges: this.getBadges(app)
     };
     if (typeof info.statistics.placesThisWeek === "undefined") info.statistics.placesThisWeek = null;
     if (typeof info.statistics.leaderboardRank === "undefined") info.statistics.leaderboardRank = null;
     return info;
-}
-
-UserSchema.methods.getInfo = function(app = null, getPixelInfo = true) {
-    return new Promise((resolve, reject) => {
-        var info = this.toInfo(app);
-        if (getPixelInfo) {
-            this.getLatestAvailablePixel().then((pixel) => {
-                info.latestPixel = pixel;
-                resolve(info);
-            }).catch((err) => resolve(info));
-        } else {
-            return resolve(info);
-        }
-    });
 }
 
 UserSchema.methods.isMarkedForDeletion = function() {
@@ -150,20 +133,6 @@ UserSchema.statics.findByUsername = function(username, callback = null) {
             $regex: new RegExp(["^", username.toLowerCase(), "$"].join(""), "i")
         }
     }, callback)
-}
-
-// badly written optimisation: cache getLatestAvailablePixel
-var getLatestAvailablePixelCache = {};
-UserSchema.methods.getLatestAvailablePixel = async function() {
-    if (getLatestAvailablePixelCache[this.id]) return getLatestAvailablePixelCache[this.id];
-    const pixel = await Pixel.findOne({
-        editorID: this.id
-    }, {}, { sort: { lastModified: -1 } });
-    if (!pixel) return null;
-    var info = pixel.toInfo();
-    info.isLatest = pixel ? ~((pixel.lastModified - this.lastPlace) / 1000) <= 3 : false;
-    getLatestAvailablePixelCache[this.id] = info;
-    return info;
 }
 
 UserSchema.methods.getUsernameInitials = function() {

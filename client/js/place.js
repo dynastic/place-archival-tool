@@ -80,6 +80,7 @@ var place = {
     handElement: null, lastUpdatedCoordinates: {x: null, y: null}, loadedImage: false,
     hashHandler: hashHandler,
     cursorX: 0, cursorY: 0,
+    pixelSegmentPixels: {}, users: {},
 
     start: function(canvas, zoomController, cameraController, displayCanvas, colourPaletteElement, coordinateElement, userCountElement, gridHint, pixelDataPopover, grid) {
         // Setup sizes
@@ -571,13 +572,30 @@ var place = {
         this.setZoomScale(this.zooming.initialZoomPoint, true);
     },
 
-    getPixel: function(x, y, callback) {
-        return $.get(`/data/pixels/${x}.${y}.json`, {}, "An error occurred while trying to retrieve data about that pixel.").done(function(response) {
-            callback(null, response);
+    getPixelSegmentForPixel: function(x, y, callback) {
+        const key = `${Math.floor(x / axisSegmentSize)}.${Math.floor(y / axisSegmentSize)}`;
+        if (this.pixelSegmentPixels[key]) return callback(null, this.pixelSegmentPixels[key]);
+        return $.get(`/data/pixels/${key}.json`, {}, "An error occurred while trying to retrieve data about that pixel.").done((response) => {
+            this.pixelSegmentPixels[key] = response.pixels;
+            for (var userID in response.users) {
+                this.users[userID] = response.users[userID];
+            }
+            callback(null, response.pixels);
         }).fail((res) => {
             if(defaultErrorMessage) window.alert(res && res.error ? (res.error.message || defaultErrorMessage) : defaultErrorMessage);
             callback(err, null);
         })
+    },
+
+    getPixel: function(x, y, callback) {
+        this.getPixelSegmentForPixel(x, y, (err, segment) => {
+            if (err) return callback(err, null);
+            let pixel = segment[`${x}.${y}`];
+            if (pixel && this.users[pixel.editorID]) {
+                pixel.user = this.users[pixel.editorID]
+            }
+            callback(null, pixel);
+        });
     },
 
     isSignedIn: function() {
