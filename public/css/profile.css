@@ -3,7 +3,7 @@ body {
 }
 
 .profile-header {
-  background: #fff url("/api/board-image") no-repeat fixed center;
+  background: #fff url("/data/board-image.png") no-repeat fixed center;
   image-rendering: optimizeSpeed;             /*                     */
   image-rendering: -moz-crisp-edges;          /* Firefox             */
   image-rendering: -o-crisp-edges;            /* Opera               */

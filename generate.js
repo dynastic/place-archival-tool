@@ -46,7 +46,7 @@ mongoose.connect(process.env.DATABASE || app.config.database);
     // Maintain a list of users for pixel JSON later
     const userData = {};
     app.logger.info('Generation', "Loading users from database and writing profile pages to disk…");
-    await User.find({ banned: false, deactivated: false, deletionDate: { $exists: false } }).cursor().eachAsync(async (user) => {
+    await User.find({ banned: { $ne: true }, deactivated: { $ne: true }, deletionDate: { $exists: false } }).cursor().eachAsync(async (user) => {
         const info = await user.getInfo(app);
         userData[user.id] = info
         await generator.writeProfilePage(user, info);
@@ -59,12 +59,11 @@ mongoose.connect(process.env.DATABASE || app.config.database);
         const info = pixel.toInfo();
         if (pixel.editorID) info.user = userData[pixel.editorID];
         generator.writePixelInfo(info);
-        console.log(info)
     });
     // Start writing image
     app.logger.info('Generation', "Generating image and saving to disk…");
-    const img = await app.paintingManager.getOutputImage();
-    generator.writeBoardImage(img);
+    const { image } = await app.paintingManager.getOutputImage();
+    generator.writeBoardImage(image);
     app.logger.info('Generation', "Successfully wrote pixel data to disk.");
 
     app.logger.info('Generation', "Done! Your static site is now available in", outDirectory);

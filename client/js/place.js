@@ -572,9 +572,12 @@ var place = {
     },
 
     getPixel: function(x, y, callback) {
-        return placeAjax.get(`/data/pixels/${x}.${y}.json`, "An error occurred while trying to retrieve data about that pixel.").then((data) => {
-            callback(null, data);
-        }).catch((err) => callback(err));
+        return $.get(`/data/pixels/${x}.${y}.json`, {}, "An error occurred while trying to retrieve data about that pixel.").done(function(response) {
+            callback(null, response);
+        }).fail((res) => {
+            if(defaultErrorMessage) window.alert(res && res.error ? (res.error.message || defaultErrorMessage) : defaultErrorMessage);
+            callback(err, null);
+        })
     },
 
     isSignedIn: function() {
@@ -620,48 +623,46 @@ var place = {
 
         this.zoomIntoPoint(x, y);
         return this.getPixel(x, y, (err, data) => {
-            if(err || !data.pixel) return;
+            if(err || !data) return;
             var popover = $(this.pixelDataPopover);
             if(this.zooming.zooming) this.shouldShowPopover = true;
             else popover.fadeIn(250);
-            var hasUser = !!data.pixel.user;
-            if(typeof data.pixel.userError === "undefined") data.pixel.userError = null;
-            popover.find("#pixel-data-username").text(hasUser ? data.pixel.user.username : this.getUserStateText(data.pixel.userError));
+            var hasUser = !!data.user;
+            if(typeof data.userError === "undefined") data.userError = null;
+            popover.find("#pixel-data-username").text(hasUser ? data.user.username : this.getUserStateText(data.userError));
             if(hasUser) popover.find("#pixel-data-username").removeClass("deleted-account");
             else popover.find("#pixel-data-username").addClass("deleted-account");
-            popover.find("#pixel-data-time").text($.timeago(data.pixel.modified));
-            popover.find("#pixel-data-time").attr("datetime", data.pixel.modified);
-            popover.find("#pixel-data-time").attr("title", new Date(data.pixel.modified).toLocaleString());
+            popover.find("#pixel-data-time").text($.timeago(data.modified));
+            popover.find("#pixel-data-time").attr("datetime", data.modified);
+            popover.find("#pixel-data-time").attr("title", new Date(data.modified).toLocaleString());
             popover.find("#pixel-data-x").text(x.toLocaleString());
             popover.find("#pixel-data-y").text(y.toLocaleString());
-            popover.find("#pixel-colour-code").text(`#${data.pixel.colour.toUpperCase()}`);
-            popover.find("#pixel-colour-preview").css("background-color", `#${data.pixel.colour}`);
-            if(data.pixel.colour.toLowerCase() == "ffffff") popover.find("#pixel-colour-preview").addClass("is-white");
+            popover.find("#pixel-colour-code").text(`#${data.colour.toUpperCase()}`);
+            popover.find("#pixel-colour-preview").css("background-color", `#${data.colour}`);
+            if(data.colour.toLowerCase() == "ffffff") popover.find("#pixel-colour-preview").addClass("is-white");
             else popover.find("#pixel-colour-preview").removeClass("is-white");
-            popover.find("#pixel-use-colour-btn").attr("data-represented-colour", data.pixel.colour);
+            popover.find("#pixel-use-colour-btn").attr("data-represented-colour", data.colour);
             popover.find(".rank-container > *").remove();
             if(hasUser) {
                 var userInfoCtn = popover.find(".user-info");
                 userInfoCtn.show();
                 userInfoCtn.find(".field").remove();
-                getUserInfoTableItem("Total pixels placed", data.pixel.user.statistics.totalPlaces.toLocaleString()).appendTo(userInfoCtn);
-                if(data.pixel.user.statistics.placesThisWeek !== null) getUserInfoTableItem("Pixels this week", data.pixel.user.statistics.placesThisWeek.toLocaleString()).appendTo(userInfoCtn);
-                getUserInfoDateTableItem("Account created", data.pixel.user.creationDate).appendTo(userInfoCtn);
-                var latestCtn = getUserInfoDateTableItem("Last placed", data.pixel.user.statistics.lastPlace).appendTo(userInfoCtn);
-                if(data.pixel.user.latestPixel && data.pixel.user.latestPixel.isLatest) {
-                    var latest = data.pixel.user.latestPixel;
+                getUserInfoTableItem("Total pixels placed", data.user.statistics.totalPlaces.toLocaleString()).appendTo(userInfoCtn);
+                if(data.user.statistics.placesThisWeek !== null) getUserInfoTableItem("Pixels this week", data.user.statistics.placesThisWeek.toLocaleString()).appendTo(userInfoCtn);
+                getUserInfoDateTableItem("Account created", data.user.creationDate).appendTo(userInfoCtn);
+                var latestCtn = getUserInfoDateTableItem("Last placed", data.user.statistics.lastPlace).appendTo(userInfoCtn);
+                if(data.user.latestPixel && data.user.latestPixel.isLatest) {
+                    var latest = data.user.latestPixel;
                     var element = $("<div>")
-                    if(data.pixel.point.x == latest.point.x && data.pixel.point.y == latest.point.y) $("<span>").addClass("secondary-info").text("(this pixel)").appendTo(element);
+                    if(data.point.x == latest.point.x && data.point.y == latest.point.y) $("<span>").addClass("secondary-info").text("(this pixel)").appendTo(element);
                     else $("<a>").attr("href", "javascript:void(0)").text(`at (${latest.point.x.toLocaleString()}, ${latest.point.y.toLocaleString()})`).click(() => app.zoomIntoPoint(latest.point.x, latest.point.y, false)).appendTo(element);
                     element.appendTo(latestCtn.find(".value"));
                 }
-                popover.find("#pixel-data-username").attr("href", `/@${data.pixel.user.username}`);
+                popover.find("#pixel-data-username").attr("href", `/@${data.user.username}`);
                 var rankContainer = popover.find(".rank-container");
-                data.pixel.user.badges.forEach((badge) => renderBadge(badge).appendTo(rankContainer));
-                popover.find("#user-actions-dropdown-ctn").html(renderUserActionsDropdown(data.pixel.user));
+                data.user.badges.forEach((badge) => renderBadge(badge).appendTo(rankContainer));
             } else {
                 popover.find(".user-info, #pixel-badge, #pixel-user-state-badge").hide();
-                popover.find("#user-actions-dropdown-ctn").html("");
                 popover.find("#pixel-data-username").removeAttr("href");
             }
         });
