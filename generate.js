@@ -5,11 +5,10 @@ const ResponseFactory = require("./util/ResponseFactory");
 const JavaScriptProcessor = require("./util/JavaScriptProcessor");
 const StaticGenerator = require("./util/StaticGenerator");
 const User = require("./models/user");
-const fs = require("fs");
-const path = require("path");
 const Pixel = require("./models/pixel");
+const path = require("path");
 
-const desiredPixelDataFileMax = 6800;
+const desiredPixelDataFileMax = 6700;
 
 var app = {};
 
@@ -41,8 +40,8 @@ mongoose.connect(process.env.DATABASE || app.config.database);
     app.logger.info('Generation', "Created output directory.")
 
     const pixelCount = await Pixel.count();
-    app.logger.info('Generation', "Found", pixelCount.toLocaleString(), "pixels in database. Splitting into", desiredPixelDataFileMax.toLocaleString(), "files…");
-    const axisSegments = Math.ceil(Math.sqrt(desiredPixelDataFileMax));
+    app.logger.info('Generation', "Found", pixelCount.toLocaleString(), "pixels in database. Splitting into under", desiredPixelDataFileMax.toLocaleString(), "files…");
+    const axisSegments = Math.floor(Math.sqrt(desiredPixelDataFileMax));
     const axisSegmentSize = Math.ceil(app.config.boardSize / axisSegments);
 
     // Create two-dimensional array of segments
