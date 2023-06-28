@@ -1,27 +1,22 @@
 const fs = require("fs");
+const path = require("path");
 const TOSManager = require("./TOSManager");
+const pug = require("pug");
 
 class ResponseFactory {
-    constructor(app, req, res, root = "") {
+    constructor(app, root = "") {
         this.app = app;
-        this.req = req;
-        this.res = res;
         this.root = root;
     }
 
-    sendRenderedResponse(template, data = null, mimeType = "text/html") {
-        var sendData = this.getAutomaticTemplateData();
+    renderTemplate(template, data = null, simulatedPath = null) {
+        var sendData = this.getAutomaticTemplateData(simulatedPath);
         if (data) sendData = Object.assign({}, sendData, data);
-        return this.res.header("Content-Type", mimeType).render(this.root + template, sendData);
+        return pug.renderFile(path.join(this.root, template) + ".pug", sendData);
     }
 
-    getAutomaticTemplateData() {
-        var resources = this.req.place.moduleManager.getResourcesFromModules(this.req);
-        var routerPath = this.req.baseUrl.substr(1);
-        if(routerPath.length > 0) routerPath += "/";
-        var path = this.req.baseUrl + this.req.path;
-        var data = { url: this.req.url, path, config: this.app.config, fs, moduleManager: this.req.place.moduleManager, resources: resources, req: this.req, res: this.res, TOSManager };
-        if (typeof this.req.user !== undefined && this.req.user) data.user = this.req.user;
+    getAutomaticTemplateData(simulatedPath) {
+        var data = { path: simulatedPath, config: this.app.config, fs, TOSManager };
         return data;
     }
 }

@@ -7,75 +7,45 @@ const regenerationInterval = 30; // in seconds
 
 function PaintingManager(app) {
     const imageSize = app.config.boardSize;
-    const cachedImagePath = path.resolve(app.dataFolder, "cached-board-image.png");
-    const temporaryCachedImagePath = path.resolve(app.dataFolder, "cached-board-image.png.tmp");
     return {
         hasImage: false,
         imageHasChanged: false,
         image: null,
         outputImage: null,
         waitingForImages: [],
-        lastPixelUpdate: null,
         firstGenerateAfterLoad: false,
-        pixelsToPaint: [],
-        pixelsToPreserve: null,
         isGenerating: false,
 
         createNewImage: function() {
             return new Jimp(imageSize, imageSize, 0xFFFFFFFF);
         },
 
-        getStartingImage: async function() {
-            try {
-                const image = await Jimp.read(cachedImagePath);
-                if (image.bitmap.width != imageSize || image.bitmap.height != imageSize) return { image: await this.createNewImage(), canServe: false, skipImmediateCache: false };
-                return { image, canServe: true, skipImmediateCache: true };
-            } catch (e) {
-                return { image: await this.createNewImage(), canServe: false, skipImmediateCache: false };
-            }
-        },
-
-        loadImageFromDatabase: function() {
-            var hasServed = false;
+        loadImageFromDatabase: async function(pixelCallback) {
+            const image = this.createNewImage()
             return new Promise((resolve, reject) => {
-                var serveImage = async (image, skipImmediateCache = false) => {
-                    this.hasImage = true;
-                    this.image = image;
-                    this.firstGenerateAfterLoad = true;
-                    await this.generateOutputImage(skipImmediateCache);
-                    if (!hasServed) resolve(image);
-                    hasServed = true;
-                }
-                this.getStartingImage().then(async ({image, canServe, skipImmediateCache}) => {
-                    if (canServe) {
-                        app.logger.info("Startup", `Got initially serveable image, serving...`);
-                        this.pixelsToPreserve = [];
-                        await serveImage(image, skipImmediateCache);
-                    }
-                    Pixel.count({}).then((count) => {
-                        var loaded = 0;
-                        var progressUpdater = setInterval(() => {
-                            app.logger.info("Startup", `Loaded ${loaded.toLocaleString()} of ${count.toLocaleString()} pixel${count == 1 ? "" : "s"} (${Math.round(loaded / count * 100)}% complete)`);
-                        }, 2500);
-                        Pixel.find({}).stream().on("data", (pixel) => {
-                            const x = pixel.xPos, y = pixel.yPos;
-                            const hex = Jimp.cssColorToHex(pixel.getHexColour());
-                            if (x >= 0 && y >= 0 && x < imageSize && y < imageSize) image.setPixelColor(hex, x, y);
-                            loaded++;
-                        }).on("end", () => {
-                            clearInterval(progressUpdater);
-                            app.logger.info("Startup", `Loaded total ${count.toLocaleString()} pixel${count == 1 ? "" : "s"} pixels from database. Applying to image...`);
-                            if (this.pixelsToPreserve) this.pixelsToPreserve.forEach((data) => image.setPixelColor(data.colour, data.x, data.y));
-                            this.pixelsToPreserve = null;
-                            app.logger.info("Startup", `Applied pixels to image. Serving image...`);
-                            serveImage(image);
-                        }).on("error", (err) => {
-                            this.pixelsToPreserve = null;
-                            clearInterval(progressUpdater);
-                            reject(err)
-                        });
+                Pixel.count({}).then((count) => {
+                    var loaded = 0;
+                    var progressUpdater = setInterval(() => {
+                        app.logger.info("Startup", `Loaded ${loaded.toLocaleString()} of ${count.toLocaleString()} pixel${count == 1 ? "" : "s"} (${Math.round(loaded / count * 100)}% complete)`);
+                    }, 2500);
+                    Pixel.find({}).cursor().on("data", (pixel) => {
+                        const x = pixel.xPos, y = pixel.yPos;
+                        const hex = Jimp.cssColorToHex(pixel.getHexColour());
+                        pixelCallback(pixel);
+                        if (x >= 0 && y >= 0 && x < imageSize && y < imageSize) image.setPixelColor(hex, x, y);
+                        loaded++;
+                    }).on("end", () => {
+                        clearInterval(progressUpdater);
+                        app.logger.info("Startup", `Loaded total ${count.toLocaleString()} pixel${count == 1 ? "" : "s"} pixels from database. Applying to image...`);
+                        this.hasImage = true;
+                        this.image = image;
+                        this.generateOutputImage();
+                        resolve(image);
+                    }).on("error", (err) => {
+                        clearInterval(progressUpdater);
+                        reject(err)
                     });
-                }).catch((err) => reject(err));
+                });
             });
         },
 
@@ -88,7 +58,7 @@ function PaintingManager(app) {
             })
         },
 
-        generateOutputImage: function(skipImmediateCache = false) {
+        generateOutputImage: function() {
             var a = this;
             return new Promise((resolve, reject) => {
                 if (a.isGenerating) return reject();
@@ -98,24 +68,8 @@ function PaintingManager(app) {
                     resolve(buffer);
                 })
                 if(this.waitingForImages.length == 1) {
-                    this.lastPixelUpdate = Math.floor(Date.now() / 1000);
-                    this.pixelsToPaint.forEach((data) => {
-                        // Paint on live image:
-                        this.image.setPixelColor(data.colour, data.x, data.y);
-                    });
-                    this.pixelsToPaint = [];
                     this.image.getBufferAsync(Jimp.MIME_PNG).then((buffer) => {
                         a.outputImage = buffer;
-                        if (!skipImmediateCache) {
-                            fs.writeFile(temporaryCachedImagePath, buffer, (err) => {
-                                if (err) return app.logger.error("Painting Manager", "Couldn't save cached board image, got error:", err);
-                                if (fs.existsSync(cachedImagePath)) fs.unlinkSync(cachedImagePath);
-                                fs.rename(temporaryCachedImagePath, cachedImagePath, (err) => { 
-                                    if (err) return app.logger.error("Painting Manager", "Couldn't move cached board image into place, got error:", err)
-                                    app.logger.info("Painting Manager", "Saved cached board image successfully!");
-                                })
-                            });
-                        }
                         a.waitingForImages.forEach((callback) => callback(null, buffer));
                         a.waitingForImages = [];
                     }).catch((err) => {
@@ -125,9 +79,6 @@ function PaintingManager(app) {
                     }).then(() => {
                         a.isGenerating = false;
                         a.imageHasChanged = false;
-                        if (a.firstGenerateAfterLoad) {
-                            a.firstGenerateAfterLoad = false;
-                        }
                     });
                 }
             })

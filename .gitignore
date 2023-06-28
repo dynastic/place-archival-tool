@@ -13,6 +13,7 @@ config/privacy_policy.md
 config/tos.md
 .place-data
 modules/*
+out/
 
 ### Linux ###
 *~

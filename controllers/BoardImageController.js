@@ -4,7 +4,7 @@ exports.getAPIBoardImage = (req, res, next) => {
         if(info.hasChanged) res.set({ "X-Place-Last-Update": info.generated });
         return res.set({ "Content-Type": "image/png" }).send(info.image);
     }).catch((err) => {
-        req.place.reportError("Error while serving board image: " + err);
+        req.place.logger.capture("Error while serving board image: " + err);
         return res.status(500).json({ success: false, error: { message: "We could not retrieve the current board image.", code: "image_fail" } });
     });
 };

@@ -80,13 +80,6 @@ var place = {
     handElement: null, lastUpdatedCoordinates: {x: null, y: null}, loadedImage: false,
     hashHandler: hashHandler,
     cursorX: 0, cursorY: 0,
-    /**
-     * @type {PlaceSocket}
-     */
-    socket: new PlaceSocket("client"),
-    stat() {
-        this.socket.emit("stat");
-    },
 
     start: function(canvas, zoomController, cameraController, displayCanvas, colourPaletteElement, coordinateElement, userCountElement, gridHint, pixelDataPopover, grid) {
         // Setup sizes
@@ -106,9 +99,6 @@ var place = {
         this.pixelDataPopover = pixelDataPopover;
 
         var app = this;
-        this.updatePlaceTimer();
-
-        $("#palette-expando").click(this.handlePaletteExpandoClick);
 
         var controller = $(zoomController).parent()[0];
         canvas.onmousemove = (event) => this.handleMouseMove(event || window.event);
@@ -123,14 +113,12 @@ var place = {
             if(document.activeElement.tagName.toLowerCase() != "input") handleKeyEvents(e);
         }
         document.body.onkeydown = function(e) {
-            app.stat();
             if(document.activeElement.tagName.toLowerCase() != "input" && $(".dialog-ctn.show").length <= 0) {
                 handleKeyEvents(e);
                 app.handleKeyDown(e.keyCode || e.which);
             }
         };
         document.body.onmousemove = function(e) {
-            app.stat();
             app.cursorX = e.pageX;
             app.cursorY = e.pageY;
         };
@@ -184,18 +172,10 @@ var place = {
             app.loadedImage = true;
         }).catch((err) => {
             console.error("Error loading board image", err);
-            if(typeof err.status !== "undefined" && err.status === 503) {
-                app.adjustLoadingScreen("Waiting for server…");
-                console.log("Server wants us to await its instruction");
-                setTimeout(function() {
-                    app.getCanvasImage()
-                }, 15000);
-            } else {
-                app.adjustLoadingScreen("An error occurred. Please wait…");
-                setTimeout(function() {
-                    app.getCanvasImage()
-                }, 5000);
-            }
+            app.adjustLoadingScreen("An error occurred. Please wait…");
+            setTimeout(function() {
+                app.getCanvasImage()
+            }, 5000);
         });
     },
 
@@ -203,7 +183,7 @@ var place = {
         var a = this;
         return new Promise((resolve, reject) => {
             var xhr = new XMLHttpRequest();
-            xhr.open("GET", "/api/board-image", true);
+            xhr.open("GET", "/data/board-image.png", true);
             xhr.responseType = "blob";
             xhr.onload = function(e) {
                 if(xhr.status == 200) {
@@ -236,17 +216,14 @@ var place = {
             autoScroll: true,
             onstart: (event) => {
                 if(event.interaction.downEvent.button == 2) return event.preventDefault();
-                app.stat();
                 $(app.zoomController).addClass("grabbing");
                 $(":focus").blur();
             },
             onmove: (event) => {
                 app.moveCamera(event.dx, event.dy);
-                app.stat();
             },
             onend: (event) => {
                 if(event.interaction.downEvent.button == 2) return event.preventDefault();
-                app.stat();
                 $(app.zoomController).removeClass("grabbing");
                 var coord = app.getCoordinates();
                 app.hashHandler.modifyHash(coord);
@@ -595,7 +572,7 @@ var place = {
     },
 
     getPixel: function(x, y, callback) {
-        return placeAjax.get(`/api/pos-info`, {x: x, y: y}, "An error occurred while trying to retrieve data about that pixel.").then((data) => {
+        return placeAjax.get(`/data/pixels/${x}.${y}.json`, "An error occurred while trying to retrieve data about that pixel.").then((data) => {
             callback(null, data);
         }).catch((err) => callback(err));
     },
@@ -620,7 +597,6 @@ var place = {
 
     canvasClicked: function(x, y, event) {
         var app = this;
-        this.stat();
         function getUserInfoTableItem(title, value) {
             var ctn = $("<div>").addClass("field");
             $("<span>").addClass("title").text(title).appendTo(ctn);

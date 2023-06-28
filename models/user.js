@@ -121,9 +121,6 @@ UserSchema.methods.toInfo = function(app = null) {
         markedForDeletion: this.isMarkedForDeletion(),
         badges: this.getBadges(app)
     };
-    if (app) {
-        info.statistics.lastSeenActively = app.userActivityController.userActivityTimes[this.id];
-    }
     if (typeof info.statistics.placesThisWeek === "undefined") info.statistics.placesThisWeek = null;
     if (typeof info.statistics.leaderboardRank === "undefined") info.statistics.leaderboardRank = null;
     return info;
@@ -153,6 +150,20 @@ UserSchema.statics.findByUsername = function(username, callback = null) {
             $regex: new RegExp(["^", username.toLowerCase(), "$"].join(""), "i")
         }
     }, callback)
+}
+
+// badly written optimisation: cache getLatestAvailablePixel
+var getLatestAvailablePixelCache = {};
+UserSchema.methods.getLatestAvailablePixel = async function() {
+    if (getLatestAvailablePixelCache[this.id]) return getLatestAvailablePixelCache[this.id];
+    const pixel = await Pixel.findOne({
+        editorID: this.id
+    }, {}, { sort: { lastModified: -1 } });
+    if (!pixel) return null;
+    var info = pixel.toInfo();
+    info.isLatest = pixel ? ~((pixel.lastModified - this.lastPlace) / 1000) <= 3 : false;
+    getLatestAvailablePixelCache[this.id] = info;
+    return info;
 }
 
 UserSchema.methods.getUsernameInitials = function() {

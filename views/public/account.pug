@@ -27,9 +27,9 @@ block content
                             span.name pixel#{profileUser.placeCount == 1 ? "" : "s"} placed
             h1 About them
             .user-details
-                p #[strong Joined] #[time.timeago(datetime=profileUser.creationDate.toISOString(), title=profileUser.creationDate.toLocaleString()) on loading date].
+                p #[strong Joined] #[time.timeago(datetime=profileUser.creationDate.toISOString(), title=profileUser.creationDate.toLocaleString()) on #{profileUser.creationDate.toLocaleString()}].
                 if profileUser.lastPlace
-                    p #[strong Last placed] #[time.timeago(datetime=profileUser.lastPlace.toISOString(), title=profileUser.lastPlace.toLocaleString())]
+                    p #[strong Last placed] #[time.timeago(datetime=profileUser.lastPlace.toISOString(), title=profileUser.lastPlace.toLocaleString()) #{profileUser.lastPlace.toLocaleString()}]
                         if pixel && pixel.isLatest
                             .
                                 #{" at "}

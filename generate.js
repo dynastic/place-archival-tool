@@ -1,0 +1,71 @@
+const mongoose = require("mongoose");
+mongoose.promise = global.Promise;
+const PaintingManager = require("./util/PaintingManager");
+const ResponseFactory = require("./util/ResponseFactory");
+const JavaScriptProcessor = require("./util/JavaScriptProcessor");
+const StaticGenerator = require("./util/StaticGenerator");
+const User = require("./models/user");
+const fs = require("fs");
+const path = require("path");
+
+var app = {};
+
+if (process.argv.length < 3) {
+    console.error("Usage: npm run generate <instance config directory>")
+    console.error("See documentation for more information.")
+    process.exit(1);
+}
+
+const configDir = path.resolve(process.argv[2]);
+
+app.logger = require('./util/logger');
+app.configDirectory = configDir; 
+app.config = require(path.join(configDir, "config.js"));
+
+if(!app.config.siteName) app.config.siteName = "Place";
+if(!app.config.boardSize) app.config.boardSize = 1600; // default to 1600 if not specified in config
+
+app.responseFactory = new ResponseFactory(app, path.join(__dirname, "views"));
+
+// Get image handler
+app.paintingManager = PaintingManager(app);
+
+mongoose.connect(process.env.DATABASE || app.config.database);
+
+(async () => {
+    const outDirectory = path.resolve(__dirname, "out");
+    const generator = new StaticGenerator(app, outDirectory);
+    app.logger.info('Generation', "Created output directory.")
+
+    app.logger.info('Generation', "Writing common files…")
+    generator.writeCommonFiles();
+
+    app.logger.info('Generation', "Building and processing client JavaScript…");
+    await new JavaScriptProcessor(app).processJavaScript(path.join(outDirectory, "js", "build"));
+
+    // Maintain a list of users for pixel JSON later
+    const userData = {};
+    app.logger.info('Generation', "Loading users from database and writing profile pages to disk…");
+    await User.find({ banned: false, deactivated: false, deletionDate: { $exists: false } }).cursor().eachAsync(async (user) => {
+        const info = await user.getInfo(app);
+        userData[user.id] = info
+        await generator.writeProfilePage(user, info);
+    })
+    app.logger.info('Generation', "Loaded all users from database and wrote profiles to disk…");
+
+    app.logger.info('Generation', "Loading pixels from the database…");
+    // Load pixels from database for image and write pixels.json
+    await app.paintingManager.loadImageFromDatabase((pixel) => {
+        const info = pixel.toInfo();
+        if (pixel.editorID) info.user = userData[pixel.editorID];
+        generator.writePixelInfo(info);
+        console.log(info)
+    });
+    // Start writing image
+    app.logger.info('Generation', "Generating image and saving to disk…");
+    const img = await app.paintingManager.getOutputImage();
+    generator.writeBoardImage(img);
+    app.logger.info('Generation', "Successfully wrote pixel data to disk.");
+
+    app.logger.info('Generation', "Done! Your static site is now available in", outDirectory);
+})();

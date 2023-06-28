@@ -7,7 +7,6 @@ block dependencies
 - if(typeof navbarSupportsTopMode === "undefined") navbarSupportsTopMode = false;
 - if(typeof isPoppedOut === "undefined") isPoppedOut = false;
 - var resourceVersion = "10"; // Increment this when you make a change to the HTML that absolutely requires CSS or JS refreshing
-- css = resources.css.concat(css);
 - var hasCommunityGuidelines = fs.existsSync("./config/community_guidelines.md");
 - var hasTOS = TOSManager.hasTOSSync();
 - var hasPP = TOSManager.hasPrivacyPolicySync();
@@ -17,7 +16,7 @@ mixin renderBadges(badges, prefersShortText = false)
   each badge in badges
     +renderBadge(badge, prefersShortText)
 mixin renderNavItem(name, itemPath, icon, showsName = true)
-  - var isCurrentPage = itemPath == (overrideNavPath || path) || (isAdmin && itemPath == "/admin");
+  - var isCurrentPage = itemPath == (overrideNavPath || path);
   li(id=`nav-${name.toLowerCase().replace(/[^0-9a-z ]/gi, '').replace(/ /g, "-")}`, class=(isCurrentPage ? "active" : ""))
     a(href=itemPath)
       if icon
@@ -25,16 +24,13 @@ mixin renderNavItem(name, itemPath, icon, showsName = true)
         span(class=showsName ? "" : "visible-xs-inline") #{name}
       if isCurrentPage
         span.sr-only (current)
-mixin getViewExtensions(name)
-  .
-    !{moduleManager.gatherViewExtensions(name, req, res)}
 doctype html
 html(lang="en")
   head
     meta(charset="utf-8")
     meta(http-equiv="X-UA-Compatible", content="IE=edge")
     meta(name="viewport", content="width=device-width, initial-scale=1, user-scalable=no")
-    title !{pageTitle != null ? `${pageTitle} &middot; ` : ""}#{config.siteName}#{config.debug ? " (debug)" : ""}
+    title !{pageTitle != null ? `${pageTitle} &middot; ` : ""}#{config.siteName}
     // Icons and web app config
     link(rel="apple-touch-icon", href="/img/apple-touch-icon.png")
     link(rel="icon", type="image/png", sizes="16x16", href="/img/favicon-16x16.png?n=1")
@@ -67,14 +63,12 @@ html(lang="en")
     - css.unshift("/css/global.css")
     each item in [...new Set(css)]
       link(href=item + "?v=" + resourceVersion, rel="stylesheet")
-    +getViewExtensions("head")
     // Shivs
     <!--[if lt IE 9]>
       script(src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js")
       script(src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js")
     <![endif]-->
   body.fixed-navbar
-    +getViewExtensions("body")
     nav#page-nav(class=`navbar navbar-default navbar-fixed-top${navbarSupportsTopMode ? " supports-top" : ""}`)
       .container
         // Brand and toggle get grouped for better mobile display
@@ -88,13 +82,9 @@ html(lang="en")
             img(src="https://assets.dynastic.co/brand/img/icon-46.png", height="20")
           a.navbar-brand(href="/")
             | #{config.siteName}
-            if config.debug
-              span.label.label-danger.beta-label debug
         .collapse.navbar-collapse#navbar-collapse
           ul.nav.navbar-nav
-            +getViewExtensions("nav_left")
             +renderNavItem("Home", "/", "home")
-            +getViewExtensions("nav_inside")
             li.dropdown
               a.dropdown-toggle(data-toggle="dropdown", href="#", role="button", aria-haspopup="true", aria-expanded="false")
                 i.fa.fa-users.fa-fw
@@ -106,17 +96,11 @@ html(lang="en")
                 +renderNavItem("Timelapses", "https://timelapse.canvas.place", "clock-o")
                 +renderNavItem("Merch", "https://merch.canvas.place", "shopping-cart")
                 +renderNavItem("Source Code", "https://www.github.com/dynastic/place", "github")
-            +getViewExtensions("nav_right")
-          ul.nav.navbar-nav.navbar-right
-            +getViewExtensions("nav_user_left")
-            +getViewExtensions("nav_user_right")
     main
       // Content-insertion point
       block content
-- if(typeof isAdmin === "undefined") isAdmin = false;
 - if(typeof js === "undefined" || !js) js = [];
 - if(typeof jsSnippets === "undefined" || !jsSnippets) jsSnippets = [];
-- js = resources.js.concat(js);
     footer.footer
         .container.footer-contents
             div
@@ -129,12 +113,12 @@ html(lang="en")
                         li: a(href="/guidelines") Rules
                     if hasPP
                         li: a(href="/privacy") Privacy Policy
-        +getViewExtensions("footer")
       
     // Scripts
     script(src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js")
     script(src="https://cdn.jsdelivr.net/gh/rmm5t/jquery-timeago@180864a9c544a49e43719b457250af216d5e4c3a/jquery.timeago.js")
     script(src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js", integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa", crossorigin="anonymous")
     script(src="https://cdn.polyfill.io/v2/polyfill.min.js")
+    - js.unshift("/js/build/site.js");
     each item in [...new Set(js)]
         script(src=item + "?v=" + resourceVersion)
